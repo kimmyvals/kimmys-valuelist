@@ -4,14 +4,18 @@
     <meta charset="utf-8" />
     <title>Kimmy's Valuelist</title>
     <script>
-      // GitHub Pages SPA redirect
-      // Encodes the path into a query string so index.html can pick it up
       var base = '/kimmys-valuelist';
-      var path = window.location.pathname.replace(base, '') || '/';
-      var search = window.location.search;
-      var hash = window.location.hash;
-      var redirect = base + '/?p=' + encodeURIComponent(path + search) + hash;
-      window.location.replace(redirect);
+      var path = window.location.pathname;
+
+      // If they hit the bare root (kimmyvals.github.io with no path),
+      // just send them straight to the site
+      if (path === '/' || path === '') {
+        window.location.replace(base + '/');
+      } else {
+        // Otherwise it's a deep-link refresh — do the SPA redirect
+        var sub = path.replace(base, '') || '/';
+        window.location.replace(base + '/?p=' + encodeURIComponent(sub + window.location.search) + window.location.hash);
+      }
     </script>
   </head>
   <body></body>
