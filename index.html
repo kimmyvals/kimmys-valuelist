@@ -25,7 +25,18 @@
         } catch (e) {}
       })();
     </script>
-  </head>
+    <script>
+    // GitHub Pages SPA: restore path from redirect
+    (function() {
+      var p = new URLSearchParams(window.location.search).get("p");
+      if (p) {
+        var base = "/kimmys-valuelist";
+        var url = base + p;
+        window.history.replaceState(null, null, url);
+      }
+    })();
+  </script>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
