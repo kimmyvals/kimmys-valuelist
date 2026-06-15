@@ -7,7 +7,7 @@ import path from "path";
 
 export default defineConfig({
   plugins: [
-    TanStackRouterVite({ target: "react-spa" }),
+    TanStackRouterVite({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),
     tsconfigPaths(),
