@@ -69,13 +69,6 @@ function Index() {
     onError: () => toast.error("Sync failed. Please try again."),
   });
 
-  // Auto-sync if never synced or last sync was over 1 hour ago
-  useEffect(() => {
-    if (syncStatus === undefined) return;
-    const ts = syncStatus?.lastSyncedAt;
-    const stale = !ts || (Date.now() - new Date(ts).getTime() > 60 * 60 * 1000);
-    if (stale && !syncMut.isPending) syncMut.mutate();
-  }, [syncStatus]);
 
   const lastSyncedLabel = useMemo(() => {
     const ts = syncStatus?.lastSyncedAt;
