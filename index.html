@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>kimmy's valuelist</title>
     <meta name="description" content="kimmy's valuelist — community skin value list for Criminality. Contact @wrruf on Discord for any changes needed." />
-    <link rel="icon" href="/kimmys-valuelist/favicon.ico" />
+    <link rel="icon" href="./favicon.ico" />
     <script>
-      // Restore path after GitHub Pages 404 redirect
+      // GitHub Pages SPA: restore path after 404 redirect
       (function () {
         var p = window.location.search.match(/[?&]p=([^&]+)/);
-        if (p) history.replaceState(null, null, '/' + decodeURIComponent(p[1]));
+        if (p) {
+          var base = '/kimmys-valuelist';
+          var restored = base + '/' + decodeURIComponent(p[1]).replace(/^\//, '');
+          history.replaceState(null, null, restored);
+        }
       })();
-      // Apply saved theme before React mounts to avoid a color flash
+      // Apply saved theme before React mounts to avoid flash
       (function () {
         try {
           var s = localStorage.getItem("kimmy-valuelist-settings");
@@ -25,20 +29,9 @@
         } catch (e) {}
       })();
     </script>
-    <script>
-    // GitHub Pages SPA: restore path from redirect
-    (function() {
-      var p = new URLSearchParams(window.location.search).get("p");
-      if (p) {
-        var base = "/kimmys-valuelist";
-        var url = base + p;
-        window.history.replaceState(null, null, url);
-      }
-    })();
-  </script>
-  <script type="module" crossorigin src="/kimmys-valuelist/assets/index-DrlHcAeT.js"></script>
-  <link rel="stylesheet" crossorigin href="/kimmys-valuelist/assets/index-02eBcCyI.css">
-</head>
+    <script type="module" crossorigin src="/kimmys-valuelist/assets/index-gxPcd1cF.js"></script>
+    <link rel="stylesheet" crossorigin href="/kimmys-valuelist/assets/index-02eBcCyI.css">
+  </head>
   <body>
     <div id="root"></div>
   </body>
