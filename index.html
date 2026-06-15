@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>kimmy's valuelist</title>
+    <meta name="description" content="kimmy's valuelist — community skin value list for Criminality. Contact @wrruf on Discord for any changes needed." />
+    <link rel="icon" href="/favicon.ico" />
+    <script>
+      // Restore path after GitHub Pages 404 redirect
+      (function () {
+        var p = window.location.search.match(/[?&]p=([^&]+)/);
+        if (p) history.replaceState(null, null, '/' + decodeURIComponent(p[1]));
+      })();
+      // Apply saved theme before React mounts to avoid a color flash
+      (function () {
+        try {
+          var s = localStorage.getItem("kimmy-valuelist-settings");
+          if (!s) return;
+          var p = JSON.parse(s);
+          var d = document.documentElement;
+          if (p.theme) d.dataset.theme = p.theme;
+          if (p.lowPerf) d.dataset.lowPerf = "1";
+          if (p.reduceMotion) d.dataset.reduceMotion = "1";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

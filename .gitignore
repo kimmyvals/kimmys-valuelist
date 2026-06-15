@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.output/
+
+# Environment — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Editor & OS
+.DS_Store
+*.local
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Bun
+bun.lock
