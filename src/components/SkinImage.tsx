@@ -77,7 +77,7 @@ export function SkinImage({
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => {
-          if (attempt < 3) {
+          if (false && attempt < 3) {
             const delay = 250 * Math.pow(2, attempt);
             timerRef.current = window.setTimeout(() => setAttempt((a) => a + 1), delay);
           } else {
