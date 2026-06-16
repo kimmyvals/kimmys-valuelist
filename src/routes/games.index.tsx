@@ -125,7 +125,7 @@ function GamePreview({ kind }: { kind: GameDef["preview"] }) {
     let raf = 0;
     let timer = 0;
 
-    const resize = () => {
+    const resize = () => { if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
       const w = canvas.clientWidth, h = canvas.clientHeight;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = w * dpr;
