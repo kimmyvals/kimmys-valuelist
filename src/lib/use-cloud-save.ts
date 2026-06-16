@@ -11,12 +11,17 @@ export function useCloudSave<T>(opts: {
 }) {
   const { key, storageKey, state, setState } = opts;
   const { user } = useAuth();
-  const hydratedRef = useRef(false);
+  const hydratedRef = useRef<string | null>(null); // store user id, not just boolean
 
-  // On sign-in, pull the cloud save down. If none exists yet, push local state up.
+  // On sign-in (or user change), pull cloud save down
   useEffect(() => {
-    if (!user || hydratedRef.current) return;
-    hydratedRef.current = true;
+    if (!user) {
+      hydratedRef.current = null; // reset on sign-out
+      return;
+    }
+    if (hydratedRef.current === user.id) return; // already hydrated for this user
+    hydratedRef.current = user.id;
+
     (async () => {
       try {
         const res   = await loadGameSave(key);
@@ -25,6 +30,7 @@ export function useCloudSave<T>(opts: {
           setState(cloud as T);
           try { localStorage.setItem(storageKey, JSON.stringify(cloud)); } catch { /* ignore */ }
         } else {
+          // No cloud save yet — push local state up
           const local   = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
           const payload = local ? JSON.parse(local) : state;
           if (payload) await saveGameSave(key, payload as Json);

@@ -6,12 +6,16 @@ export type GameKey = "market" | "memorize" | "cases" | "snowfall" | "daily";
 export async function loadGameSave(key: GameKey): Promise<{ data: Json | null; updatedAt: string | null }> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { data: null, updatedAt: null };
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from("game_saves")
     .select("data, updated_at")
     .eq("user_id", session.user.id)
     .eq("game_key", key)
     .maybeSingle();
+  if (error) {
+    console.error("[game-saves] load error:", error.message);
+    return { data: null, updatedAt: null };
+  }
   return { data: (row?.data ?? null) as Json | null, updatedAt: row?.updated_at ?? null };
 }
 
@@ -23,7 +27,7 @@ export async function saveGameSave(key: GameKey, saveData: Json): Promise<void> 
   const { error } = await supabase
     .from("game_saves")
     .upsert(
-      { user_id: session.user.id, game_key: key, data: saveData },
+      { user_id: session.user.id, game_key: key, data: saveData, updated_at: new Date().toISOString() },
       { onConflict: "user_id,game_key" },
     );
   if (error) throw new Error(error.message);

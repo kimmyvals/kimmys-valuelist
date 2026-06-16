@@ -10,6 +10,6 @@ export async function submitContactMessage(opts: {
 }
 
 export function encodeImageUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  try { return encodeURI(url); } catch { return url; }
+  if (!url || typeof url !== "string") return "";
+  try { return encodeURI(decodeURI(url)); } catch { return url; }
 }

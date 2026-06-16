@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 export function useAuth() {
-  const [user, setUser]       = useState<User | null>(null);
+  const [user, setUser]         = useState<User | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isEditor, setIsEditor] = useState(false);
   const [isAdmin, setIsAdmin]   = useState(false);
@@ -13,9 +13,18 @@ export function useAuth() {
     let cancelled = false;
 
     const hydrate = async (u: User | null) => {
-      if (cancelled) return;
-      setUser(u);
-      if (!u) { setIsEditor(false); setIsAdmin(false); setUsername(null); setLoading(false); return; }
+      if (!u) {
+        if (!cancelled) {
+          setUser(null);
+          setIsEditor(false);
+          setIsAdmin(false);
+          setUsername(null);
+          setLoading(false);
+        }
+        return;
+      }
+      // Set user immediately so UI can show logged-in state
+      if (!cancelled) setUser(u);
       try {
         const [{ data: roles }, { data: profile }] = await Promise.all([
           supabase.from("user_roles").select("role").eq("user_id", u.id),
@@ -33,12 +42,20 @@ export function useAuth() {
       }
     };
 
+    // Listen for future auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       hydrate(session?.user ?? null);
     });
-    supabase.auth.getSession().then(({ data }) => { hydrate(data.session?.user ?? null); });
 
-    return () => { cancelled = true; subscription.unsubscribe(); };
+    // Hydrate from existing session on mount
+    supabase.auth.getSession().then(({ data }) => {
+      hydrate(data.session?.user ?? null);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return { user, username, isEditor, isAdmin, loading };

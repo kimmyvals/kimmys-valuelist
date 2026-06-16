@@ -575,7 +575,7 @@ function SnowfallGame() {
           className="pointer-events-auto fixed z-40 -translate-x-1/2 -translate-y-1/2"
           style={{ left: `${shimmer.x}vw`, top: `${shimmer.y}vh` }}
         >
-          <svg viewBox="0 0 60 60" className="h-14 w-14 drop-shadow-[0_0_16px_rgba(252,211,77,0.9)] animate-pulse" fill="none">
+          <svg viewBox="0 0 60 60" className="h-20 w-20 drop-shadow-[0_0_16px_rgba(252,211,77,0.9)] animate-pulse" fill="none">
             <polygon points="30,2 36,22 58,22 41,35 47,55 30,42 13,55 19,35 2,22 24,22" fill="#fde68a" stroke="#f59e0b" strokeWidth="1.5" />
           </svg>
         </button>

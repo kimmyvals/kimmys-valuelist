@@ -65,23 +65,23 @@ function TrendBadge({ value }: { value?: string | null }) {
 }
 
 const rarityClass: Record<string, string> = {
-  Limited:  "bg-yellow-400/20 text-yellow-200 border-yellow-400/50",
-  Exotic:   "bg-orange-400/20 text-orange-200 border-orange-400/50",
-  Legendary:"bg-red-500/20 text-red-300 border-red-500/50",
-  Epic:     "bg-purple-500/20 text-purple-300 border-purple-500/50",
-  Rare:     "bg-sky-400/15 text-sky-200 border-sky-400/40",
-  Uncommon: "bg-green-400/20 text-green-200 border-green-400/40",
-  Common:   "bg-zinc-400/15 text-zinc-300 border-zinc-400/40",
+  Limited:   "bg-yellow-400/20 text-yellow-200 border-yellow-400/50",
+  Exotic:    "bg-orange-400/20 text-orange-200 border-orange-400/50",
+  Legendary: "bg-red-500/20 text-red-300 border-red-500/50",
+  Epic:      "bg-purple-500/20 text-purple-300 border-purple-500/50",
+  Rare:      "bg-sky-400/15 text-sky-200 border-sky-400/40",
+  Uncommon:  "bg-green-400/20 text-green-200 border-green-400/40",
+  Common:    "bg-zinc-400/15 text-zinc-300 border-zinc-400/40",
 };
 
 const rarityRing: Record<string, string> = {
-  Limited:  "border-yellow-400/60",
-  Exotic:   "border-orange-400/60",
-  Legendary:"border-red-500/60",
-  Epic:     "border-purple-500/50",
-  Rare:     "border-sky-400/40",
-  Uncommon: "border-green-400/30",
-  Common:   "border-zinc-400/30",
+  Limited:   "border-yellow-400/60",
+  Exotic:    "border-orange-400/60",
+  Legendary: "border-red-500/60",
+  Epic:      "border-purple-500/50",
+  Rare:      "border-sky-400/40",
+  Uncommon:  "border-green-400/30",
+  Common:    "border-zinc-400/30",
 };
 
 export function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
