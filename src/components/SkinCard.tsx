@@ -86,7 +86,8 @@ const rarityRing: Record<string, string> = {
 };
 
 export function SkinCard({
-  const [confirmOpen, setConfirmOpen] = useState(false); skin, onClick }: { skin: Skin; onClick: () => void }) {
+  skin, onClick }: { skin: Skin; onClick: () => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [settings] = useSettings();
   const { isEditor } = useAuth();
   const qc = useQueryClient();
