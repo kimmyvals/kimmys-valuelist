@@ -571,6 +571,7 @@ function SnowfallGame() {
         <button
           onClick={catchShimmer}
           aria-label="Catch the shimmer"
+          onTouchStart={(e) => { e.preventDefault(); catchShimmer(); }}
           className="pointer-events-auto fixed z-40 -translate-x-1/2 -translate-y-1/2"
           style={{ left: `${shimmer.x}vw`, top: `${shimmer.y}vh` }}
         >
