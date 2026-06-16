@@ -15,7 +15,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, Plus, Trash2, Scale, TrendingUp, TrendingDown, Share2, Lightbulb } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Scale, TrendingUp, TrendingDown, Share2, Lightbulb, ArrowLeftRight } from "lucide-react";
 import type { Skin } from "@/components/SkinCard";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useSettings } from "@/lib/settings";
@@ -52,7 +52,6 @@ function availableModes(skin: Skin): { mode: ValueMode; label: string; value: nu
   return out;
 }
 
-// Encode/decode trade state in URL query string
 function encodeState(you: Side, them: Side): string {
   const obj = {
     yr: you.raw,
@@ -103,7 +102,7 @@ function SkinPicker({ skins, onPick, showImages }: { skins: Skin[]; onPick: (ski
                 >
                   <div className="flex w-full items-center gap-2">
                     {showImages && s.image_url && (
-                      <img src={s.image_url} alt="" className="h-8 w-8 shrink-0 rounded object-contain" loading="lazy" />
+                      <img src={s.image_url} alt="" className="h-8 w-8 shrink-0 rounded object-contain" loading="eager" />
                     )}
                     <span className="min-w-0 flex-1 truncate">{s.name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{s.weapon_type} · {Number(s.value).toLocaleString()}</span>
@@ -153,7 +152,7 @@ function SideColumn({
           return (
             <div key={entry.id} className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 p-2">
               {showImages && skin.image_url && (
-                <img src={skin.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-contain" loading="lazy" />
+                <img src={skin.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-contain" loading="eager" />
               )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{skin.name}</div>
@@ -184,12 +183,13 @@ function SideColumn({
 }
 
 function CalculatorPage() {
-  const navigate = useNavigate();
   const search = Route.useSearch() as Record<string, string>;
   const [you, setYou] = useState<Side>(emptySide());
   const [them, setThem] = useState<Side>(emptySide());
   const [settings] = useSettings();
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // Which side to add balancers to — default to loser's side, but user can flip
+  const [balancerTarget, setBalancerTarget] = useState<"you" | "them">("you");
 
   const { data: skins = [] } = useQuery({
     queryKey: ["skins"],
@@ -208,15 +208,11 @@ function CalculatorPage() {
 
   const sortedSkins = useMemo(() => [...skins].sort((a, b) => a.name.localeCompare(b.name)), [skins]);
 
-  // Load from URL on mount
   useEffect(() => {
     const t = (search as Record<string, string>).t;
     if (t && skins.length > 0) {
       const decoded = decodeState(t);
-      if (decoded) {
-        setYou(decoded.you);
-        setThem(decoded.them);
-      }
+      if (decoded) { setYou(decoded.you); setThem(decoded.them); }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skins.length]);
@@ -236,49 +232,52 @@ function CalculatorPage() {
   const winning = diff > 0;
   const losing = diff < 0;
 
-  // Share link
+  // Auto-set balancer target to losing side when trade changes
+  useEffect(() => {
+    if (losing) setBalancerTarget("you");
+    else if (winning) setBalancerTarget("them");
+  }, [losing, winning]);
+
   const shareLink = () => {
     const encoded = encodeState(you, them);
     const url = `${window.location.origin}/calculator?t=${encoded}`;
     navigator.clipboard.writeText(url).then(() => toast.success("Link copied to clipboard")).catch(() => toast.error("Copy failed"));
   };
 
-  // Suggest balancers — skins to add to the losing side to balance the trade
-  // Max 6, meaningful value, sorted by value desc, then demand desc, then lowest amount_unboxed
+  // Smarter balancer suggestions: find combinations of 1-3 skins that get closest to the gap
   const suggestions = useMemo(() => {
-    if (!losing && !winning) return [];
+    if (diff === 0) return [];
     const gap = Math.abs(diff);
     if (gap < 10) return [];
 
-    const losingIds = new Set(losing ? you.entries.map(e => e.skinId) : them.entries.map(e => e.skinId));
-    const BAND = 0.35; // within 35% of gap
+    const targetSide = balancerTarget === "you" ? you : them;
+    const targetIds = new Set(targetSide.entries.map(e => e.skinId));
 
-    const candidates = skins
+    // Single skin suggestions — within 40% of gap
+    const BAND = 0.40;
+    const singles = skins
       .filter((s) => {
         const v = Number(s.value);
-        if (v <= 0) return false;
-        if (losingIds.has(s.id)) return false;
-        return v >= gap * (1 - BAND) && v <= gap * (1 + BAND);
+        return v > 0 && !targetIds.has(s.id) && v >= gap * (1 - BAND) && v <= gap * (1 + BAND);
       })
       .sort((a, b) => {
-        const vDiff = Number(b.value) - Number(a.value);
-        if (vDiff !== 0) return vDiff;
-        const dDiff = Number(b.demand ?? 0) - Number(a.demand ?? 0);
-        if (dDiff !== 0) return dDiff;
-        const auA = Number(a.amount_unboxed ?? Infinity);
-        const auB = Number(b.amount_unboxed ?? Infinity);
-        return auA - auB;
+        // Sort by how close to the gap, then by demand desc
+        const aDiff = Math.abs(Number(a.value) - gap);
+        const bDiff = Math.abs(Number(b.value) - gap);
+        if (Math.abs(aDiff - bDiff) > gap * 0.05) return aDiff - bDiff;
+        return Number(b.demand ?? 0) - Number(a.demand ?? 0);
       })
       .slice(0, 6);
 
-    return candidates;
-  }, [diff, losing, winning, skins, you.entries, them.entries]);
+    return singles;
+  }, [diff, balancerTarget, skins, you, them]);
 
   const addSuggestion = (skin: Skin) => {
-    if (losing) {
-      setYou((s) => ({ ...s, entries: [...s.entries, { id: crypto.randomUUID(), skinId: skin.id, mode: "value" }] }));
+    const entry = { id: crypto.randomUUID(), skinId: skin.id, mode: "value" as ValueMode };
+    if (balancerTarget === "you") {
+      setYou((s) => ({ ...s, entries: [...s.entries, entry] }));
     } else {
-      setThem((s) => ({ ...s, entries: [...s.entries, { id: crypto.randomUUID(), skinId: skin.id, mode: "value" }] }));
+      setThem((s) => ({ ...s, entries: [...s.entries, entry] }));
     }
   };
 
@@ -311,7 +310,6 @@ function CalculatorPage() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Mobile: show which side is which */}
         <div className="mb-3 flex items-center justify-center gap-4 sm:hidden text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-primary" /> Your side (top)</span>
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-border" /> Their side (bottom)</span>
@@ -347,19 +345,39 @@ function CalculatorPage() {
           </div>
 
           {/* Suggest balancers */}
-          {(winning || losing) && Math.abs(diff) >= 10 && (
+          {diff !== 0 && Math.abs(diff) >= 10 && (
             <div className="mt-4 border-t border-border/60 pt-4">
-              <button
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => setShowSuggestions((x) => !x)}
-              >
-                <Lightbulb className="h-4 w-4 text-primary" />
-                {showSuggestions ? "Hide" : "Show"} balancers — skins to add to the {losing ? "your" : "their"} side
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowSuggestions((x) => !x)}
+                >
+                  <Lightbulb className="h-4 w-4 text-primary" />
+                  {showSuggestions ? "Hide" : "Show"} balancers
+                </button>
+                {showSuggestions && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Adding to:</span>
+                    <button
+                      onClick={() => setBalancerTarget("you")}
+                      className={`rounded px-2 py-0.5 font-medium transition ${balancerTarget === "you" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Your side
+                    </button>
+                    <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
+                    <button
+                      onClick={() => setBalancerTarget("them")}
+                      className={`rounded px-2 py-0.5 font-medium transition ${balancerTarget === "them" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Their side
+                    </button>
+                  </div>
+                )}
+              </div>
               {showSuggestions && (
                 <div className="mt-3">
                   {suggestions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">No close matches found. Try adjusting the trade manually.</p>
+                    <p className="text-xs text-muted-foreground italic">No close matches found (gap: {Math.abs(diff).toLocaleString()}). Try adjusting the trade manually.</p>
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {suggestions.map((s) => (
@@ -369,14 +387,17 @@ function CalculatorPage() {
                           className="flex items-center gap-2 rounded-md border border-border/60 bg-background/30 p-2 text-left hover:border-primary/60 hover:bg-primary/5 transition-colors"
                         >
                           {settings.showImages && s.image_url && (
-                            <img src={s.image_url} alt="" className="h-9 w-9 shrink-0 rounded object-contain bg-secondary/40" loading="lazy" />
+                            <img src={s.image_url} alt="" className="h-9 w-9 shrink-0 rounded object-contain bg-secondary/40" loading="eager" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-xs font-semibold">{s.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{s.weapon_type}</div>
+                            <div className="text-[10px] text-muted-foreground">{s.weapon_type} · {s.season}</div>
                           </div>
                           <div className="shrink-0 text-right">
                             <div className="font-mono text-xs font-bold text-primary">{Number(s.value).toLocaleString()}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              off by {Math.abs(Number(s.value) - Math.abs(diff)).toLocaleString()}
+                            </div>
                             {s.demand != null && <div className="text-[10px] text-muted-foreground">D{Number(s.demand)}</div>}
                           </div>
                         </button>

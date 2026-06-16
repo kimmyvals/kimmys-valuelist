@@ -53,12 +53,16 @@ export function useSettings(): [AppSettings, (next: Partial<AppSettings>) => voi
     return () => { listeners.delete(cb); window.removeEventListener("storage", onStorage); };
   }, []);
 
+  // Apply theme to <html> using requestAnimationFrame to avoid blocking the render
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.theme = state.theme;
-      document.documentElement.dataset.lowPerf = state.lowPerf ? "1" : "0";
-      document.documentElement.dataset.reduceMotion = state.reduceMotion ? "1" : "0";
-    }
+    const raf = requestAnimationFrame(() => {
+      if (typeof document !== "undefined") {
+        document.documentElement.dataset.theme = state.theme;
+        document.documentElement.dataset.lowPerf = state.lowPerf ? "1" : "0";
+        document.documentElement.dataset.reduceMotion = state.reduceMotion ? "1" : "0";
+      }
+    });
+    return () => cancelAnimationFrame(raf);
   }, [state.theme, state.lowPerf, state.reduceMotion]);
 
   const update = (next: Partial<AppSettings>) => {

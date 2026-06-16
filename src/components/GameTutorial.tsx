@@ -57,18 +57,24 @@ export function GameTutorial({ storageKey, title, steps, open, onOpenChange }: {
 
 export function useTutorial(gameKey: string) {
   const storageKey = `valuegame.tutorial.${gameKey}.v1`;
+  // Always start closed; open automatically only if never seen
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try { if (!localStorage.getItem(storageKey)) setOpen(true); } catch { /* ignore */ }
+    try {
+      if (!localStorage.getItem(storageKey)) setOpen(true);
+    } catch { /* ignore */ }
   }, [storageKey]);
 
+  // Expose a stable open handler so button clicks always work
+  const openTutorial = () => setOpen(true);
+
   const Trigger = () => (
-    <Button variant="ghost" size="sm" onClick={() => setOpen(true)} title="How to play">
+    <Button variant="ghost" size="sm" onClick={openTutorial} title="How to play">
       <HelpCircle className="mr-2 h-4 w-4" /> How to play
     </Button>
   );
 
-  return { Trigger, props: { storageKey, open, onOpenChange: setOpen } };
+  return { Trigger, openTutorial, props: { storageKey, open, onOpenChange: setOpen } };
 }

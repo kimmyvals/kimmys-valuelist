@@ -42,7 +42,9 @@ function Index() {
   const [isNew, setIsNew]           = useState(false);
   const [authOpen, setAuthOpen]     = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const { user, username, isEditor, isAdmin } = useAuth();
+
+  // Always call useAuth — never conditionally. Loading state prevents missing data.
+  const { user, username, isEditor, isAdmin, loading: authLoading } = useAuth();
   const [settings] = useSettings();
   const ThemeIcon = THEME_ICON[settings.theme];
 
@@ -56,8 +58,14 @@ function Index() {
     },
   });
 
-  const { data: syncStatus } = useQuery({ queryKey: ["sync-status"], queryFn: () => getSyncStatus(), refetchInterval: 60_000, staleTime: 30_000 });
-  const syncMut    = useMutation({
+  const { data: syncStatus } = useQuery({
+    queryKey: ["sync-status"],
+    queryFn: () => getSyncStatus(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const syncMut = useMutation({
     mutationFn: () => syncFromGoogleSheet(),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skins"] });
@@ -66,9 +74,8 @@ function Index() {
       else if (res.errors.length) toast.error(`Sync issues: ${res.errors.join("; ")}`);
       else toast.success(`Synced ${res.main + res.exotics} skins from sheet.`);
     },
-    onError: () => toast.error("Sync failed. Please try again."),
+    onError: (e: Error) => toast.error(`Sync failed: ${e.message}`),
   });
-
 
   const lastSyncedLabel = useMemo(() => {
     const ts = syncStatus?.lastSyncedAt;
@@ -137,14 +144,37 @@ function Index() {
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
               <Button asChild variant="outline" size="sm"><Link to="/calculator"><Scale className="mr-2 h-4 w-4" />Trade Calc</Link></Button>
               <Button asChild variant="outline" size="sm"><Link to="/games"><Gamepad2 className="mr-2 h-4 w-4" />Games</Link></Button>
-              {user && isAdmin && <Button asChild variant="outline" size="sm"><Link to="/inbox"><Inbox className="mr-2 h-4 w-4" />Inbox</Link></Button>}
-              {user && <Button variant="outline" size="sm" onClick={() => setContactOpen(true)}><Mail className="mr-2 h-4 w-4" />Contact</Button>}
-              {isEditor && <Button variant="outline" size="sm" onClick={() => syncMut.mutate()} disabled={syncMut.isPending} title="Pull latest values from Google Sheet"><RefreshCw className={`mr-2 h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} />Sync sheet</Button>}
+              {/* Show inbox/contact only once auth has resolved */}
+              {!authLoading && user && isAdmin && (
+                <Button asChild variant="outline" size="sm"><Link to="/inbox"><Inbox className="mr-2 h-4 w-4" />Inbox</Link></Button>
+              )}
+              {!authLoading && user && (
+                <Button variant="outline" size="sm" onClick={() => setContactOpen(true)}><Mail className="mr-2 h-4 w-4" />Contact</Button>
+              )}
+              {!authLoading && isEditor && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => syncMut.mutate()}
+                  disabled={syncMut.isPending}
+                  title="Pull latest values from Google Sheet"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} />
+                  Sync sheet
+                </Button>
+              )}
               <SettingsMenu />
-              {user ? (
-                <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}><LogOut className="mr-2 h-4 w-4" />{username ? `Sign out (${username})` : "Sign out"}</Button>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setAuthOpen(true)}><LogIn className="mr-2 h-4 w-4" />Sign in</Button>
+              {!authLoading && (
+                user ? (
+                  <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {username ? `Sign out (${username})` : "Sign out"}
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setAuthOpen(true)}>
+                    <LogIn className="mr-2 h-4 w-4" />Sign in
+                  </Button>
+                )
               )}
             </div>
           </div>
@@ -169,7 +199,7 @@ function Index() {
           <Select value={caseFilter} onValueChange={setCaseFilter}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent className="max-h-72"><SelectItem value="all">All cases</SelectItem>{cases.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
           <Select value={rarity} onValueChange={setRarity}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All rarities</SelectItem>{RARITIES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
           <Select value={sort} onValueChange={(v) => setSort(v as Sort)}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="value-desc">Value: High to Low</SelectItem><SelectItem value="value-asc">Value: Low to High</SelectItem><SelectItem value="name-asc">Name: A–Z</SelectItem><SelectItem value="updated-desc">Recently updated</SelectItem></SelectContent></Select>
-          {isEditor && <Button onClick={openNew} className="gap-1"><Plus className="h-4 w-4" />Add skin</Button>}
+          {!authLoading && isEditor && <Button onClick={openNew} className="gap-1"><Plus className="h-4 w-4" />Add skin</Button>}
         </div>
       </section>
 
@@ -194,8 +224,10 @@ function Index() {
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       {user && <ContactDialog open={contactOpen} onOpenChange={setContactOpen} userId={user.id} username={username ?? "user"} />}
 
-      <div className="fixed bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
-        title={syncStatus?.lastSyncedAt ? new Date(syncStatus.lastSyncedAt).toLocaleString() : "Not synced yet"}>
+      <div
+        className="fixed bottom-3 right-3 z-30 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
+        title={syncStatus?.lastSyncedAt ? new Date(syncStatus.lastSyncedAt).toLocaleString() : "Not synced yet"}
+      >
         <RefreshCw className={`h-3 w-3 ${syncMut.isPending ? "animate-spin" : ""}`} />
         <span>{syncMut.isPending ? "Syncing…" : lastSyncedLabel}</span>
       </div>

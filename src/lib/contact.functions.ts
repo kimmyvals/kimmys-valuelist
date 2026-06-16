@@ -29,18 +29,18 @@ export async function sendContactMessage(opts: { subject: string; body: string }
     throw new Error("Failed to send message.");
   }
 
-  // Discord webhook — only works if you have a Cloudflare Worker or similar proxy
-  // that exposes the webhook URL. Skipped silently on static builds.
+  // Discord webhook — read from env at build time (VITE_ prefix exposes it client-side)
+  // To keep it secret, proxy through a Cloudflare Worker or Supabase Edge Function instead.
   try {
-    const webhookUrl = (import.meta as Record<string, unknown> & { env?: Record<string, string> }).env?.VITE_DISCORD_WEBHOOK_URL;
-    if (webhookUrl) {
-      await fetch(webhookUrl, {
+    const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL as string | undefined;
+    if (webhookUrl && webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
+      const res = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: "Valuelist Inbox",
           embeds: [{
-            title: `New message from ${username}`,
+            title: `📨 New message from ${username}`,
             description: data.body.slice(0, 1800),
             color: 0x5865f2,
             fields: [{ name: "Subject", value: data.subject.slice(0, 256) }],
@@ -48,8 +48,13 @@ export async function sendContactMessage(opts: { subject: string; body: string }
           }],
         }),
       });
+      if (!res.ok) {
+        console.warn("[contact] Discord webhook failed:", res.status, await res.text());
+      }
     }
-  } catch { /* ignore — notification failure shouldn't block the message */ }
+  } catch (e) {
+    console.warn("[contact] Discord webhook error (non-fatal):", e);
+  }
 
   return { id: row.id };
 }

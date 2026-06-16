@@ -3,7 +3,7 @@ import { encodeImageUrl } from "@/lib/contact";
 
 /**
  * Reliable skin image renderer.
- * - Native lazy-loading + async decoding
+ * - Eager loading (no lazy — lazy was blocking images from appearing)
  * - Skeleton placeholder until loaded
  * - Auto-retry up to 3× with exponential backoff + cache-bust
  * - Initials fallback when all retries fail
@@ -73,11 +73,11 @@ export function SkinImage({
         key={attempt}
         src={finalSrc}
         alt={alt}
-        loading="lazy"
+        loading="eager"
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => {
-          if (false && attempt < 3) {
+          if (attempt < 3) {
             const delay = 250 * Math.pow(2, attempt);
             timerRef.current = window.setTimeout(() => setAttempt((a) => a + 1), delay);
           } else {

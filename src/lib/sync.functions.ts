@@ -119,37 +119,29 @@ function buildRecords(rows: string[][], section: "main" | "exotics"): SkinUpsert
   return records;
 }
 
-/**
- * Returns the last sync metadata from the database.
- * sync_state is publicly readable per RLS.
- */
 export async function getSyncStatus(): Promise<{
   lastSyncedAt: string | null;
   mainCount: number;
   exoticsCount: number;
   lastError: string | null;
 }> {
-  const { data } = await supabase
-    .from("sync_state")
-    .select("last_synced_at, main_count, exotics_count, last_error")
-    .eq("id", "sheet")
-    .maybeSingle();
-  return {
-    lastSyncedAt: data?.last_synced_at ?? null,
-    mainCount: data?.main_count ?? 0,
-    exoticsCount: data?.exotics_count ?? 0,
-    lastError: data?.last_error ?? null,
-  };
+  try {
+    const { data } = await supabase
+      .from("sync_state")
+      .select("last_synced_at, main_count, exotics_count, last_error")
+      .eq("id", "sheet")
+      .maybeSingle();
+    return {
+      lastSyncedAt: data?.last_synced_at ?? null,
+      mainCount: data?.main_count ?? 0,
+      exoticsCount: data?.exotics_count ?? 0,
+      lastError: data?.last_error ?? null,
+    };
+  } catch {
+    return { lastSyncedAt: null, mainCount: 0, exoticsCount: 0, lastError: null };
+  }
 }
 
-/**
- * Runs a full sync from the Google Sheet to Supabase.
- *
- * This runs entirely client-side using the signed-in editor's JWT.
- * RLS on the skins table allows editors to upsert rows, so no
- * service role key is needed. sync_state writes require admin role
- * (per the migration policy).
- */
 export async function syncFromGoogleSheet(): Promise<SyncResult> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("You must be signed in to sync.");
@@ -157,15 +149,17 @@ export async function syncFromGoogleSheet(): Promise<SyncResult> {
   const out: SyncResult = { main: 0, exotics: 0, errors: [], at: new Date().toISOString() };
 
   // Throttle check
-  const { data: state } = await supabase
-    .from("sync_state")
-    .select("last_synced_at")
-    .eq("id", "sheet")
-    .maybeSingle();
-  if (state?.last_synced_at) {
-    const age = Date.now() - new Date(state.last_synced_at).getTime();
-    if (age < THROTTLE_MS) return { ...out, at: state.last_synced_at, skipped: true };
-  }
+  try {
+    const { data: state } = await supabase
+      .from("sync_state")
+      .select("last_synced_at")
+      .eq("id", "sheet")
+      .maybeSingle();
+    if (state?.last_synced_at) {
+      const age = Date.now() - new Date(state.last_synced_at).getTime();
+      if (age < THROTTLE_MS) return { ...out, at: state.last_synced_at, skipped: true };
+    }
+  } catch { /* continue even if state read fails */ }
 
   const tasks: Array<["main" | "exotics", string[]]> = [
     ["main",   MAIN_TAB_CANDIDATES],
@@ -180,24 +174,28 @@ export async function syncFromGoogleSheet(): Promise<SyncResult> {
       const { error } = await supabase
         .from("skins")
         .upsert(records, { onConflict: "weapon_type,name" });
-      if (error) { console.error(`[sync] ${section}:`, error.message); out.errors.push(`${section}: sync failed`); continue; }
+      if (error) { console.error(`[sync] ${section}:`, error.message); out.errors.push(`${section}: ${error.message}`); continue; }
       if (section === "main") out.main = records.length; else out.exotics = records.length;
     } catch (e) {
       console.error(`[sync] ${section}:`, e);
-      out.errors.push(`${section}: sync failed`);
+      out.errors.push(`${section}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  // Update sync metadata — requires admin role per RLS policy
-  await supabase
-    .from("sync_state")
-    .update({
-      last_synced_at: out.at,
-      main_count: out.main,
-      exotics_count: out.exotics,
-      last_error: out.errors.length ? out.errors.join("; ").slice(0, 500) : null,
-    })
-    .eq("id", "sheet");
+  // Update sync metadata — upsert so it works even if row doesn't exist yet
+  try {
+    await supabase
+      .from("sync_state")
+      .upsert({
+        id: "sheet",
+        last_synced_at: out.at,
+        main_count: out.main,
+        exotics_count: out.exotics,
+        last_error: out.errors.length ? out.errors.join("; ").slice(0, 500) : null,
+      }, { onConflict: "id" });
+  } catch (e) {
+    console.warn("[sync] state update failed (non-fatal):", e);
+  }
 
   return out;
 }

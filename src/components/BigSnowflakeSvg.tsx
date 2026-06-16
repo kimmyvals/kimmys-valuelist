@@ -1,6 +1,5 @@
 /**
- * Crisp six-pointed snowflake with inner detail rings.
- * Much sharper than the previous version — proper geometric snowflake.
+ * Realistic six-pointed snowflake with dendritic branches.
  */
 export function BigSnowflakeSvg({ className }: { className?: string }) {
   const arms = Array.from({ length: 6 });
@@ -18,55 +17,67 @@ export function BigSnowflakeSvg({ className }: { className?: string }) {
           <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
         </linearGradient>
         <filter id="sf-glow">
-          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feGaussianBlur stdDeviation="1.5" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
       <g stroke="url(#sf-grad)" fill="none" strokeLinecap="round" strokeLinejoin="round" filter="url(#sf-glow)">
-        {/* Main six arms */}
         {arms.map((_, i) => {
-          const angle = (i * 60 * Math.PI) / 180;
+          const angleDeg = i * 60;
+          const angle = (angleDeg * Math.PI) / 180;
           const cos = Math.cos(angle);
           const sin = Math.sin(angle);
-          // Main arm endpoint
-          const x2 = 100 + cos * 82;
-          const y2 = 100 + sin * 82;
-          // Large fork positions (60% out)
-          const fx1x = 100 + cos * 55;
-          const fx1y = 100 + sin * 55;
-          const la = angle + Math.PI / 4;
-          const lb = angle - Math.PI / 4;
-          const f1ax = fx1x + Math.cos(la) * 18;
-          const f1ay = fx1y + Math.sin(la) * 18;
-          const f1bx = fx1x + Math.cos(lb) * 18;
-          const f1by = fx1y + Math.sin(lb) * 18;
-          // Small fork positions (35% out)
-          const fx2x = 100 + cos * 35;
-          const fx2y = 100 + sin * 35;
-          const f2ax = fx2x + Math.cos(la) * 11;
-          const f2ay = fx2y + Math.sin(la) * 11;
-          const f2bx = fx2x + Math.cos(lb) * 11;
-          const f2by = fx2y + Math.sin(lb) * 11;
+
+          // Main arm tip
+          const tipX = 100 + cos * 80;
+          const tipY = 100 + sin * 80;
+
+          // Branch positions along the arm
+          const branchDefs = [
+            { dist: 28, len: 16, angleDelta: Math.PI / 3 },
+            { dist: 45, len: 22, angleDelta: Math.PI / 3 },
+            { dist: 62, len: 14, angleDelta: Math.PI / 4 },
+          ];
+
+          const branches = branchDefs.flatMap(({ dist, len, angleDelta }) => {
+            const bx = 100 + cos * dist;
+            const by = 100 + sin * dist;
+            return [1, -1].map((dir) => {
+              const ba = angle + dir * angleDelta;
+              return {
+                x1: bx, y1: by,
+                x2: bx + Math.cos(ba) * len,
+                y2: by + Math.sin(ba) * len,
+              };
+            });
+          });
+
+          // Tip fork
+          const forkAngle1 = angle + Math.PI / 5;
+          const forkAngle2 = angle - Math.PI / 5;
+          const forkLen = 10;
 
           return (
             <g key={i}>
               {/* Main arm */}
-              <line x1="100" y1="100" x2={x2} y2={y2} strokeWidth="5" />
-              {/* Outer fork */}
-              <line x1={fx1x} y1={fx1y} x2={f1ax} y2={f1ay} strokeWidth="3.5" />
-              <line x1={fx1x} y1={fx1y} x2={f1bx} y2={f1by} strokeWidth="3.5" />
-              {/* Inner fork */}
-              <line x1={fx2x} y1={fx2y} x2={f2ax} y2={f2ay} strokeWidth="2.5" />
-              <line x1={fx2x} y1={fx2y} x2={f2bx} y2={f2by} strokeWidth="2.5" />
+              <line x1="100" y1="100" x2={tipX} y2={tipY} strokeWidth="4" />
+              {/* Tip forks */}
+              <line x1={tipX} y1={tipY} x2={tipX - Math.cos(forkAngle1) * forkLen} y2={tipY - Math.sin(forkAngle1) * forkLen} strokeWidth="2" />
+              <line x1={tipX} y1={tipY} x2={tipX - Math.cos(forkAngle2) * forkLen} y2={tipY - Math.sin(forkAngle2) * forkLen} strokeWidth="2" />
+              {/* Side branches */}
+              {branches.map((b, j) => (
+                <line key={j} x1={b.x1} y1={b.y1} x2={b.x2} y2={b.y2} strokeWidth={j < 4 ? 2.5 : 2} />
+              ))}
             </g>
           );
         })}
-        {/* Hexagonal inner ring */}
+
+        {/* Inner hexagon ring */}
         {arms.map((_, i) => {
           const a1 = (i * 60 * Math.PI) / 180;
           const a2 = ((i + 1) * 60 * Math.PI) / 180;
-          const r = 22;
+          const r = 18;
           return (
             <line
               key={`hex-${i}`}
@@ -75,22 +86,24 @@ export function BigSnowflakeSvg({ className }: { className?: string }) {
               x2={100 + Math.cos(a2) * r}
               y2={100 + Math.sin(a2) * r}
               strokeWidth="2"
-              strokeOpacity="0.6"
+              strokeOpacity="0.7"
             />
           );
         })}
       </g>
+
       {/* Centre dot */}
-      <circle cx="100" cy="100" r="7" fill="url(#sf-grad)" />
+      <circle cx="100" cy="100" r="6" fill="url(#sf-grad)" />
+
       {/* Tip dots */}
       {arms.map((_, i) => {
         const angle = (i * 60 * Math.PI) / 180;
         return (
           <circle
             key={`tip-${i}`}
-            cx={100 + Math.cos(angle) * 82}
-            cy={100 + Math.sin(angle) * 82}
-            r="4"
+            cx={100 + Math.cos(angle) * 80}
+            cy={100 + Math.sin(angle) * 80}
+            r="3.5"
             fill="url(#sf-grad)"
             opacity="0.9"
           />
