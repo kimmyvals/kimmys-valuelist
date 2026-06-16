@@ -124,13 +124,17 @@ function DailyGame() {
   useEffect(() => () => { if (timerRef.current) window.clearInterval(timerRef.current); }, []);
 
   const startRound = () => {
+    if (timerRef.current) window.clearInterval(timerRef.current);
     setPhase("playing");
     setQIdx(0); setScore(0); setCombo(0); setPicked(null);
     setTimeLeft(ROUND_SECONDS);
     timerRef.current = window.setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
-          if (timerRef.current) window.clearInterval(timerRef.current);
+          if (timerRef.current) {
+            window.clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
           finishRound(0);
           return 0;
         }

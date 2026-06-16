@@ -133,7 +133,8 @@ function MarketGame() {
       Object.entries(saved.inventory ?? {}).forEach(([k, v]) => { if (validIds.has(k)) inv[k] = v; });
       const orders = (saved.orders ?? []).filter((o) => validIds.has(o.skinId));
 
-      const rate = saved.autoPerSec * (OFFLINE_BASE_RATE + (saved.upgrades?.offlineEff ?? 0) * 0.1);
+      const offlineEffBonus = (saved.upgrades?.offlineEff ?? 0) * 0.1;
+      const rate = saved.autoPerSec * (OFFLINE_BASE_RATE + offlineEffBonus);
       const elapsedMs = Math.max(0, Date.now() - (saved.lastTickAt ?? Date.now()));
       const cappedMs  = Math.min(elapsedMs, OFFLINE_CAP_HOURS * 3600_000);
       const earned    = (rate * cappedMs) / 1000;
