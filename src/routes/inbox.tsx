@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Mail, MailOpen, Reply, CheckCircle2, Users, Shield, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type ContactMessage = { id: string; user_id: string; username: string; subject: string; body: string; status: "new" | "read" | "replied"; reply: string | null; replied_at: string | null; created_at: string };
 
@@ -56,16 +57,23 @@ function InboxPage() {
     if (m.status === "new") update.mutate({ id: m.id, patch: { status: "read" } });
   };
 
-  const sendReply = async () => {
-    if (!current || !replyText.trim()) return;
-    const grant = window.confirm("Grant this user editor access?\nOK = grant editor + save reply\nCancel = just save reply");
-    if (grant) {
+  
+  const doGrant = async () => {
+    setGrantOpen(false);
       const { error } = await supabase.from("user_roles").insert({ user_id: current.user_id, role: "editor" });
       if (error && !/duplicate|unique/i.test(error.message)) { toast.error(friendlyError(error)); return; }
       toast.success("Editor access granted");
-    }
+    if (!current || !replyText.trim()) return;
+    setGrantOpen(true); return;
     update.mutate({ id: current.id, patch: { reply: replyText.trim(), status: "replied", replied_at: new Date().toISOString() } }, { onSuccess: () => toast.success("Reply saved") });
   };
+  const doSkip = async () => {
+    setGrantOpen(false);
+    if (!current || !replyText.trim()) return;
+    setGrantOpen(true); return;
+    update.mutate({ id: current.id, patch: { reply: replyText.trim(), status: "replied", replied_at: new Date().toISOString() } }, { onSuccess: () => toast.success("Reply saved") });
+  };
+  const sendReply = () => setGrantOpen(true);
 
   return (
     <div className="min-h-screen">
@@ -121,6 +129,15 @@ function InboxPage() {
           <TabsContent value="users"><UsersPanel /></TabsContent>
         </Tabs>
       </main>
+      <ConfirmDialog
+        open={grantOpen}
+        title="Grant editor access?"
+        message="Grant this user editor access? They will be able to edit skin values."
+        confirmLabel="Grant access + send reply"
+        cancelLabel="Just send reply"
+        onConfirm={doGrant}
+        onCancel={doSkip}
+      />
     </div>
   );
 }

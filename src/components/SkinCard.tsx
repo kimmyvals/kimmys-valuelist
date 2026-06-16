@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 import { SkinImage } from "@/components/SkinImage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export type Skin = {
   id: string;
@@ -84,7 +85,8 @@ const rarityRing: Record<string, string> = {
   Common:    "border-zinc-400/30",
 };
 
-export function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
+export function SkinCard({
+  const [confirmOpen, setConfirmOpen] = useState(false); skin, onClick }: { skin: Skin; onClick: () => void }) {
   const [settings] = useSettings();
   const { isEditor } = useAuth();
   const qc = useQueryClient();
@@ -112,7 +114,7 @@ export function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void })
           className="absolute right-2 bottom-2 z-10 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm(`Remove "${skin.name}"? This cannot be undone.`)) del.mutate();
+            setConfirmOpen(true);
           }}
           disabled={del.isPending}
           aria-label="Remove skin"
