@@ -409,7 +409,7 @@ function SnowfallGame() {
       }
       const elapsed = Math.min(OFFLINE_CAP_HOURS * 3600_000, Math.max(0, Date.now() - existing.lastTickAt));
       const earned = (basePpsLoaded * b.offlineMult * elapsed) / 1000;
-      if (earned > 1) setOfflineEarned(earned);
+      if (Number.isFinite(earned) && earned > 1) setOfflineEarned(earned);
       setSave({ ...existing, flakes: existing.flakes + earned, totalFlakes: existing.totalFlakes + earned, lifetimeFlakes: existing.lifetimeFlakes + earned, lastTickAt: Date.now() });
     } else {
       setSave(makeFreshSave(emptyBuffs()));
@@ -425,7 +425,7 @@ function SnowfallGame() {
 
   useEffect(() => {
     function frame(ts: number) {
-      const dt = (ts - lastFrameRef.current) / 1000;
+      const dt = Math.min(0.1, (ts - lastFrameRef.current) / 1000);
       lastFrameRef.current = ts;
       setSave((s) => {
         if (!s) return s;
@@ -468,7 +468,7 @@ function SnowfallGame() {
       if (shimmer && Date.now() - shimmer.created > 14_000) setShimmer(null);
     }, 500);
     return () => clearInterval(id);
-  }, [shimmer, buffs.shimmerFreqMult]);
+  }); // stable — reads via refs
 
   const catchShimmer = () => {
     setShimmer(null);
