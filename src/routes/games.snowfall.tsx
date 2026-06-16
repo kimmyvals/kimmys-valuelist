@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { useCloudSave } from "@/lib/use-cloud-save";
 import { GameTutorial, useTutorial } from "@/components/GameTutorial";
 import { BigSnowflakeSvg } from "@/components/BigSnowflakeSvg";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/games/snowfall")({
   component: SnowfallGame,
@@ -226,6 +228,20 @@ function BuildingIcon({ kind, className }: { kind: string; className?: string })
 }
 
 // ---- Constellation View (space scene) ----
+
+// Wrap ConstellationsPanel in a proper Dialog so it doesn't push layout around
+function ConstellationDialog({ open, save, onBuy, onClose }: {
+  open: boolean; save: SaveState; onBuy: (k: string) => void; onClose: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-5xl w-full p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <ConstellationsPanel save={save} onBuy={onBuy} onClose={onClose} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ConstellationsPanel({
   save, onBuy, onClose,
 }: { save: SaveState; onBuy: (k: string) => void; onClose: () => void }) {
@@ -360,6 +376,9 @@ function SnowfallGame() {
   const [save, setSave] = useState<SaveState | null>(null);
   const [offlineEarned, setOfflineEarned] = useState<number | null>(null);
   const [showConst, setShowConst] = useState(false);
+  const [confirmRebirth, setConfirmRebirth] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const pendingFrostRef = useRef(0);
   const [now, setNow] = useState(Date.now());
 
   // Keep `now` updated for shimmer countdown
@@ -416,7 +435,14 @@ function SnowfallGame() {
     }
   }, [save]);
 
-  useEffect(() => { if (save) saveSave(save); }, [save]);
+  const saveThrottleRef = useRef(0);
+  useEffect(() => {
+    if (!save) return;
+    const now = Date.now();
+    if (now - saveThrottleRef.current < 5000) return;
+    saveThrottleRef.current = now;
+    saveSave(save);
+  }, [save]);
   useCloudSave({ key: "snowfall", storageKey: STORAGE, state: save, setState: setSave });
 
   // RAF tick
@@ -468,7 +494,7 @@ function SnowfallGame() {
       if (shimmer && Date.now() - shimmer.created > 14_000) setShimmer(null);
     }, 500);
     return () => clearInterval(id);
-  }); // stable — reads via refs
+  }, []); // stable — reads via refs
 
   const catchShimmer = () => {
     setShimmer(null);
@@ -514,7 +540,12 @@ function SnowfallGame() {
     if (!save) return;
     const frostGain = pendingFrost(save.totalFlakes, save.rebirths);
     if (frostGain <= 0) { toast.error("Reach 1,000,000 flakes this Winter to rebirth"); return; }
-    if (!confirm(`Start a new Winter and earn ${frostGain} Frost? Flakes and buildings reset, but Frost and Constellations remain.`)) return;
+    pendingFrostRef.current = frostGain;
+    setConfirmRebirth(true);
+  };
+
+  const doRebirth = () => {
+    const frostGain = pendingFrostRef.current;
     setSave((s) => {
       if (!s) return s;
       let b = emptyBuffs();
@@ -541,8 +572,9 @@ function SnowfallGame() {
     });
   };
 
-  const reset = () => {
-    if (!confirm("Wipe all Snowfall progress, including Constellations? This cannot be undone.")) return;
+  const reset = () => setConfirmReset(true);
+
+  const doReset = () => {
     localStorage.removeItem(STORAGE);
     setSave(null);
     setTimeout(() => window.location.reload(), 50);
@@ -558,6 +590,25 @@ function SnowfallGame() {
 
   return (
     <div className="min-h-screen pb-12">
+      <ConfirmDialog
+        open={confirmRebirth}
+        title="Start a new Winter?"
+        message={`You'll earn ${pendingFrostRef.current} Frost. Flakes and buildings reset — Frost and Constellations stay.`}
+        confirmLabel={`Rebirth (+${pendingFrostRef.current} Frost)`}
+        cancelLabel="Stay here"
+        onConfirm={() => { setConfirmRebirth(false); doRebirth(); }}
+        onCancel={() => setConfirmRebirth(false)}
+      />
+      <ConfirmDialog
+        open={confirmReset}
+        title="Wipe all progress?"
+        message="This deletes your flakes, buildings, Frost, and Constellations permanently. Cannot be undone."
+        confirmLabel="Reset everything"
+        cancelLabel="Keep playing"
+        destructive
+        onConfirm={() => { setConfirmReset(false); doReset(); }}
+        onCancel={() => setConfirmReset(false)}
+      />
       <GameTutorial {...tut.props} title="Snowfall" steps={[
         { title: "Tap the snowflake", body: "Each tap gathers a small number of flakes. Buildings do the real work — click to get started, then build." },
         { title: "Buy buildings", body: "The panel on the right lists buildings that produce flakes automatically. Each one you buy raises the cost of the next, so buying many types is usually better than stacking one." },
@@ -589,7 +640,7 @@ function SnowfallGame() {
               <h1 className="font-display text-xl font-bold sm:text-2xl">Snowfall</h1>
             </div>
             <div className="flex gap-1.5 flex-wrap">
-              <tut.Trigger />
+              <Button variant="ghost" size="sm" onClick={tut.openTutorial}> How to play</Button>
               <Button variant="outline" size="sm" onClick={() => setShowConst((x) => !x)}>
                 <Star className="mr-1 h-3.5 w-3.5" /> Constellations {save.frost > 0 && <Badge className="ml-1.5 text-[10px] px-1">{save.frost}</Badge>}
               </Button>
@@ -611,7 +662,7 @@ function SnowfallGame() {
         </div>
       </header>
 
-      {showConst && <ConstellationsPanel save={save} onBuy={buyConst} onClose={() => setShowConst(false)} />}
+      <ConstellationDialog open={showConst} save={save} onBuy={buyConst} onClose={() => setShowConst(false)} />
 
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12">
