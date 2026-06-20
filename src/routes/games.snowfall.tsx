@@ -383,6 +383,7 @@ function SnowfallGame() {
   const [confirmReset, setConfirmReset] = useState(false);
   const pendingFrostRef = useRef(0);
   const [now, setNow] = useState(Date.now());
+  const isHydratedRef = useRef(false);
 
   // Keep `now` updated for shimmer countdown
   useEffect(() => {
@@ -433,8 +434,10 @@ function SnowfallGame() {
       const earned = (basePpsLoaded * b.offlineMult * elapsed) / 1000;
       if (Number.isFinite(earned) && earned > 1) setOfflineEarned(earned);
       setSave({ ...existing, flakes: existing.flakes + earned, totalFlakes: existing.totalFlakes + earned, lifetimeFlakes: existing.lifetimeFlakes + earned, lastTickAt: Date.now() });
+      isHydratedRef.current = true;
     } else {
       setSave(makeFreshSave(emptyBuffs()));
+      isHydratedRef.current = true;
     }
   }, [save]);
 
@@ -448,7 +451,7 @@ function SnowfallGame() {
     saveSave(save);
   }, [save]);
 
-  useCloudSave({ key: "snowfall", storageKey: STORAGE, state: save, setState: setSave });
+  useCloudSave({ key: "snowfall", storageKey: STORAGE, state: save, setState: setSave, skipInitialSync: isHydratedRef.current });
 
   // RAF tick for passive income
   const rafRef = useRef<number | null>(null);
@@ -573,7 +576,7 @@ function SnowfallGame() {
         const r = s.constellations[c.key] ?? 0;
         if (r > 0) b = c.apply(r, b);
       }
-      return { ...s, flakes: b.startingFlakes, totalFlakes: b.startingFlakes, buildings: {}, frost: s.frost + frostGain, rebirths: s.rebirths + 1, activeBuff: null, shimmerNextAt: Date.now() + 240_000, lastTickAt: Date.now() };
+      return { ...s, flakes: b.startingFlakes, totalFlakes: b.startingFlakes, buildings: {}, frost: s.frost + frostGain, rebirths: s.rebirths + 1, activeBuff: null, shimmerNextAt: Date.now() + 240_000 + Math.random() * 360_000, lastTickAt: Date.now() };
     });
     toast.success(`+${frostGain} Frost earned. Spend it in Constellations.`);
     setShowConst(true);
@@ -629,10 +632,10 @@ function SnowfallGame() {
       />
       <GameTutorial {...tut.props} title="Snowfall" steps={[
         { title: "Tap the snowflake", body: "Each tap gathers a small number of flakes. Buildings do the real work — click to get started, then build." },
-        { title: "Buy buildings", body: "The panel on the right lists buildings that produce flakes automatically. Each one you buy raises the cost of the next, so buying many types is usually better than stacking one." },
+        { title: "Buy buildings", body: "The panel on the right lists buildings that produce flakes automatically. Each one you buy raises the cost of the next, so buying many types is usually best." },
         { title: "Watch for the shimmer", body: "Every few minutes a golden shape drifts across the screen. Tap it fast — it grants a big burst of production or a pile of flakes instantly." },
         { title: "Rebirth into Winter", body: "Once you hit one million flakes you can start a new Winter. You lose flakes and buildings but gain Frost, which is permanent." },
-        { title: "Spend Frost in Constellations", body: "The Constellations screen lets you spend Frost on permanent upgrades — faster production, stronger clicks, more shimmers, and a bigger head start on your next run." },
+        { title: "Spend Frost in Constellations", body: "The Constellations screen lets you spend Frost on permanent upgrades — faster production, stronger clicks, more shimmers, and a bigger offline multiplier." },
       ]} />
 
       {/* Shimmer overlay */}
@@ -695,7 +698,7 @@ function SnowfallGame() {
                   style={{ filter: "drop-shadow(0 0 18px rgba(180,210,255,0.4))" }}
                   onTouchStart={(e) => { e.preventDefault(); clickFlake(); }}
                 >
-                  <div className="absolute inset-0 animate-spin rounded-full" style={{ animationDuration: "32s", background: "conic-gradient(from 0deg, rgba(255,255,255,0.03), rgba(160,210,255,0.15), rgba(255,255,255,0.03))" }} />
+                  <div className="absolute inset-0 animate-spin rounded-full" style={{ animationDuration: "32s", background: "conic-gradient(from 0deg, rgba(255,255,255,0.03), rgba(160,210,255,0.08))" }} />
                   <BigSnowflakeSvg className="relative h-36 w-36 transition-transform group-hover:scale-105 group-active:scale-95 sm:h-44 sm:w-44" />
                 </button>
                 <div className="text-center text-xs text-muted-foreground">
