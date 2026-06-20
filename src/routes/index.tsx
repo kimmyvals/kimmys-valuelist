@@ -42,6 +42,7 @@ function Index() {
   const [isNew, setIsNew]           = useState(false);
   const [authOpen, setAuthOpen]     = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [lastManualSync, setLastManualSync] = useState<number | null>(null);
 
   // Always call useAuth — never conditionally. Loading state prevents missing data.
   const { user, username, isEditor, isAdmin, loading: authLoading } = useAuth();
@@ -70,6 +71,7 @@ function Index() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skins"] });
       qc.invalidateQueries({ queryKey: ["sync-status"] });
+      setLastManualSync(Date.now());
       if (res.skipped) toast.message("Sheet already synced recently — skipped.");
       else if (res.errors.length) toast.error(`Sync issues: ${res.errors.join("; ")}`);
       else toast.success(`Synced ${res.main + res.exotics} skins from sheet.`);
@@ -78,16 +80,17 @@ function Index() {
   });
 
   const lastSyncedLabel = useMemo(() => {
-    const ts = syncStatus?.lastSyncedAt;
+    // Prefer the manually-triggered sync time if it's very recent
+    const ts = lastManualSync && (Date.now() - lastManualSync < 5000) ? new Date(lastManualSync) : (syncStatus?.lastSyncedAt ? new Date(syncStatus.lastSyncedAt) : null);
     if (!ts) return "Never synced";
-    const diff = Date.now() - new Date(ts).getTime();
+    const diff = Date.now() - ts.getTime();
     const mins = Math.floor(diff / 60_000);
     if (mins < 1) return "Synced just now";
     if (mins < 60) return `Synced ${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `Synced ${hrs}h ago`;
     return `Synced ${Math.floor(hrs / 24)}d ago`;
-  }, [syncStatus?.lastSyncedAt]);
+  }, [syncStatus?.lastSyncedAt, lastManualSync]);
 
   const tabSkins = useMemo(() => skins.filter((s) => (s.section ?? "main") === tab), [skins, tab]);
   const weapons  = useMemo(() => Array.from(new Set(tabSkins.map((s) => s.weapon_type))).sort(), [tabSkins]);
@@ -185,7 +188,8 @@ function Index() {
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 pt-3 sm:px-6 lg:px-8">
           {(["main", "exotics"] as const).map((t) => (
             <button key={t} onClick={() => { setTab(t); setWeapon("all"); setCaseFilter("all"); setRarity("all"); }}
-              className={`rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium transition ${tab === t ? "border-border/60 bg-background text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+              className={`rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium transition ${tab === t ? "border-border/60 bg-background text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            >
               {t === "main" ? "Main List" : "Exotics"}
             </button>
           ))}
@@ -195,10 +199,10 @@ function Index() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search by name or nickname..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <Select value={weapon} onValueChange={setWeapon}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent className="max-h-72"><SelectItem value="all">All weapons</SelectItem>{weapons.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
-          <Select value={caseFilter} onValueChange={setCaseFilter}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent className="max-h-72"><SelectItem value="all">All cases</SelectItem>{cases.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
+          <Select value={weapon} onValueChange={setWeapon}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent className="max-h-72"><SelectItem value="all">All weapons</SelectItem>{weapons.map((w) => <SelectItem key={w} value={w}>{w}</SelectItem>)}</SelectContent></Select>
+          <Select value={caseFilter} onValueChange={setCaseFilter}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent className="max-h-72"><SelectItem value="all">All cases</SelectItem>{cases.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
           <Select value={rarity} onValueChange={setRarity}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All rarities</SelectItem>{RARITIES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
-          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="value-desc">Value: High to Low</SelectItem><SelectItem value="value-asc">Value: Low to High</SelectItem><SelectItem value="name-asc">Name: A–Z</SelectItem><SelectItem value="updated-desc">Recently updated</SelectItem></SelectContent></Select>
+          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="value-desc">Value: High to Low</SelectItem><SelectItem value="value-asc">Value: Low to High</SelectItem><SelectItem value="name-asc">Name: A to Z</SelectItem><SelectItem value="updated-desc">Recently Updated</SelectItem></SelectContent></Select>
           {!authLoading && isEditor && <Button onClick={openNew} className="gap-1"><Plus className="h-4 w-4" />Add skin</Button>}
         </div>
       </section>
