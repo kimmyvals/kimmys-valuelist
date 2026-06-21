@@ -42,7 +42,6 @@ function Index() {
   const [isNew, setIsNew]           = useState(false);
   const [authOpen, setAuthOpen]     = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [lastManualSync, setLastManualSync] = useState<number | null>(null);
 
   // Always call useAuth — never conditionally. Loading state prevents missing data.
   const { user, username, isEditor, isAdmin, loading: authLoading } = useAuth();
@@ -62,8 +61,8 @@ function Index() {
   const { data: syncStatus } = useQuery({
     queryKey: ["sync-status"],
     queryFn: () => getSyncStatus(),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,
+    staleTime: 0,
   });
 
   const syncMut = useMutation({
@@ -71,7 +70,6 @@ function Index() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skins"] });
       qc.invalidateQueries({ queryKey: ["sync-status"] });
-      setLastManualSync(Date.now());
       if (res.skipped) toast.message("Sheet already synced recently — skipped.");
       else if (res.errors.length) toast.error(`Sync issues: ${res.errors.join("; ")}`);
       else toast.success(`Synced ${res.main + res.exotics} skins from sheet.`);
@@ -80,17 +78,16 @@ function Index() {
   });
 
   const lastSyncedLabel = useMemo(() => {
-    // Prefer the manually-triggered sync time if it's very recent
-    const ts = lastManualSync && (Date.now() - lastManualSync < 5000) ? new Date(lastManualSync) : (syncStatus?.lastSyncedAt ? new Date(syncStatus.lastSyncedAt) : null);
+    const ts = syncStatus?.lastSyncedAt;
     if (!ts) return "Never synced";
-    const diff = Date.now() - ts.getTime();
+    const diff = Date.now() - new Date(ts).getTime();
     const mins = Math.floor(diff / 60_000);
     if (mins < 1) return "Synced just now";
     if (mins < 60) return `Synced ${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `Synced ${hrs}h ago`;
     return `Synced ${Math.floor(hrs / 24)}d ago`;
-  }, [syncStatus?.lastSyncedAt, lastManualSync]);
+  }, [syncStatus?.lastSyncedAt]);
 
   const tabSkins = useMemo(() => skins.filter((s) => (s.section ?? "main") === tab), [skins, tab]);
   const weapons  = useMemo(() => Array.from(new Set(tabSkins.map((s) => s.weapon_type))).sort(), [tabSkins]);
